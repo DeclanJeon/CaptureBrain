@@ -1,0 +1,50 @@
+# Built application files
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Java/Kotlin build
+*.class
+*.jar
+!gradle-wrapper.jar
+
+# Android build directories
+build/
+app/build/
+.gradle/
+
+# Local configuration
+local.properties
+*.env
+.capturebrain-android-env
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Keystore (never commit)
+*.keystore
+*.jks
+
+# Google services / secrets
+google-services.json
+credentials.json
+secrets.xml
+client_id*.json
+
+# AgentDock runtime (not part of source)
+.agent-work/
+.agentdock/
+
+# Generated Room schema (optional)
+app/schemas/
+
+# Log files
+*.log
+
+# OS files
+Thumbs.db

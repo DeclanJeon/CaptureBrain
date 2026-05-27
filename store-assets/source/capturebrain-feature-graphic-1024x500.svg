@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs><linearGradient id="bg" x1="0" x2="1"><stop stop-color="#F8FAFC"/><stop offset="1" stop-color="#EEF5FF"/></linearGradient></defs>
+  <rect width="1024" height="500" fill="#F8FAFC"/><rect x="520" y="0" width="504" height="500" fill="#EEF5FF" opacity="0.75"/>
+  <g transform="translate(40,15) scale(.72)"><g id="logo">
+  <rect x="40" y="40" width="432" height="432" rx="96" fill="#F7F8FC" stroke="#DAE2F0" stroke-width="8"/>
+  <rect x="124" y="286" width="264" height="96" rx="24" fill="#EAF1FF" stroke="#93B5FF" stroke-width="8"/>
+  <rect x="124" y="254" width="120" height="52" rx="18" fill="#EAF1FF" stroke="#93B5FF" stroke-width="8"/>
+  <path d="M112 142 H72 V182 M400 142 H440 V182 M112 370 H72 V330 M400 370 H440 V330" fill="none" stroke="#2563EB" stroke-width="18" stroke-linecap="round"/>
+  <path d="M160 224 C130 198 148 147 191 158 C206 102 286 105 300 159 C347 145 382 200 349 233 C356 264 332 290 299 286 H174 C139 290 121 249 160 224Z" fill="#FFFFFF" stroke="#2563EB" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M176 248 L220 224 L257 250 L315 220" fill="none" stroke="#10B981" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M362 96 L383 158 L447 176 L392 207 L377 272 L343 214 L279 196 L337 162Z" fill="#F59E0B"/>
+</g></g>
+  <text x="340" y="150" font-family="Noto-Sans-CJK-KR, Noto Sans CJK KR, Noto Sans, Arial" font-size="72" font-weight="800" fill="#111827">스크린샷 정리,</text>
+  <text x="340" y="235" font-family="Noto-Sans-CJK-KR, Noto Sans CJK KR, Noto Sans, Arial" font-size="72" font-weight="800" fill="#111827">이제 자동으로</text>
+  <text x="344" y="310" font-family="Noto-Sans-CJK-KR, Noto Sans CJK KR, Noto Sans, Arial" font-size="31" fill="#6B7280">찍으면 내용을 감지하고, 폴더를 만들고,</text>
+  <text x="344" y="352" font-family="Noto-Sans-CJK-KR, Noto Sans CJK KR, Noto Sans, Arial" font-size="31" fill="#6B7280">이미지와 Markdown을 Google Drive에 저장합니다.</text>
+  <g font-family="Noto Sans, Arial" font-size="24" font-weight="700" fill="#111827">
+    <rect x="344" y="402" width="160" height="52" rx="26" fill="#FFFFFF" stroke="#DCE6F2"/><circle cx="372" cy="428" r="9" fill="#2563EB"/><text x="392" y="437">Screenshot</text>
+    <rect x="525" y="402" width="150" height="52" rx="26" fill="#FFFFFF" stroke="#DCE6F2"/><circle cx="553" cy="428" r="9" fill="#10B981"/><text x="573" y="437">Category</text>
+    <rect x="696" y="402" width="112" height="52" rx="26" fill="#FFFFFF" stroke="#DCE6F2"/><circle cx="724" cy="428" r="9" fill="#F59E0B"/><text x="744" y="437">Drive</text>
+  </g>
+</svg>
