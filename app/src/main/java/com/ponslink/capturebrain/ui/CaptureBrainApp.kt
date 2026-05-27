@@ -409,6 +409,11 @@ private fun DashboardScreen(
             }
         }
 
+        /* Native ad — between quick actions and captures */
+        item {
+            NativeAdCard()
+        }
+
         /* Recent captures */
         if (captures.isNotEmpty()) {
             item {

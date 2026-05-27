@@ -18,6 +18,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
+import com.google.android.gms.ads.MobileAds
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 import com.google.api.services.drive.DriveScopes
@@ -89,6 +90,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize AdMob SDK with test device
+        MobileAds.initialize(this)
+        MobileAds.setRequestConfiguration(
+            MobileAds.getRequestConfiguration()
+                .toBuilder()
+                .setTestDeviceIds(listOf("76B3CF5CD5CACF1E7CA4E87B5392203D"))
+                .build()
+        )
+
         accountStore = DriveAccountStore(this)
         settingsStore = CaptureSettingsStore(this)
         connectedDriveAccount = accountStore.getAccountName()
