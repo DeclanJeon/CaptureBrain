@@ -3,6 +3,9 @@ package com.ponslink.capturebrain.ocr
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.net.Uri
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
@@ -59,10 +62,10 @@ class PaddleOcrV5Processor(
             context.contentResolver.openInputStream(imageUri)?.use {
                 BitmapFactory.decodeStream(it)
             } ?: throw IllegalStateException("Cannot open image: $imageUri")
-        }
+        }.toOpaqueBitmap()
 
         // 1. Detection
-        val detResult = runDetection(bitmap)
+        val detResult = mergeLineBoxes(runDetection(bitmap))
 
         // 2. For each text region: cls → rec
         val blocks = mutableListOf<RecognizedTextBlock>()
@@ -70,10 +73,11 @@ class PaddleOcrV5Processor(
         for (box in detResult) {
             val cropped = cropAndRotate(bitmap, box)
             if (cropped.width < 10 || cropped.height < 10) continue
+            val enhancedCrop = cropped.enhanceForText()
 
             // Direction classification
-            val isReversed = runClassification(cropped)
-            val oriented = if (isReversed) rotate180(cropped) else cropped
+            val isReversed = runClassification(enhancedCrop)
+            val oriented = if (isReversed) rotate180(enhancedCrop) else enhancedCrop
 
             // Text recognition
             val (text, conf) = runRecognition(oriented)
@@ -95,9 +99,8 @@ class PaddleOcrV5Processor(
         }
 
         OcrResult(
-            originalText = blocks.joinToString("\n") { it.text },
-            layoutPreservedText = blocks.sortedWith(compareBy<RecognizedTextBlock> { it.top }.thenBy { it.left })
-                .joinToString("\n") { it.text },
+            originalText = blocks.readingOrder().joinToString("\n") { it.text },
+            layoutPreservedText = blocks.readingOrder().joinToString("\n") { it.text },
             confidence = confidences.takeIf { it.isNotEmpty() }?.average()?.toFloat(),
             blocks = blocks
         )
@@ -106,7 +109,7 @@ class PaddleOcrV5Processor(
     // ─── Detection ──────────────────────────────────────────
 
     private fun runDetection(bitmap: Bitmap): List<List<Pair<Float, Float>>> {
-        val resizeLong = 960
+        val resizeLong = 1536
         val ratio = resizeLong.toFloat() / max(bitmap.width, bitmap.height)
         val newW = (bitmap.width * ratio).toInt().coerceAtLeast(32)
         val newH = (bitmap.height * ratio).toInt().coerceAtLeast(32)
@@ -226,6 +229,108 @@ class PaddleOcrV5Processor(
         return box.map { Pair(cx + (it.first - cx) * ratio, cy + (it.second - cy) * ratio) }
     }
 
+    private fun mergeLineBoxes(boxes: List<List<Pair<Float, Float>>>): List<List<Pair<Float, Float>>> {
+        if (boxes.size <= 1) return boxes
+        val rects = boxes.mapNotNull { box ->
+            if (box.isEmpty()) return@mapNotNull null
+            val left = box.minOf { it.first }
+            val top = box.minOf { it.second }
+            val right = box.maxOf { it.first }
+            val bottom = box.maxOf { it.second }
+            FloatRect(left, top, right, bottom)
+        }.sortedWith(compareBy<FloatRect> { it.centerY }.thenBy { it.left })
+
+        val merged = mutableListOf<FloatRect>()
+        for (rect in rects) {
+            val candidate = merged.lastOrNull()
+            if (candidate != null && candidate.isSameTextLine(rect)) {
+                candidate.include(rect)
+            } else {
+                merged.add(rect.copy())
+            }
+        }
+        return merged.map { it.toBox() }
+    }
+
+    private data class FloatRect(
+        var left: Float,
+        var top: Float,
+        var right: Float,
+        var bottom: Float
+    ) {
+        val width: Float get() = right - left
+        val height: Float get() = bottom - top
+        val centerY: Float get() = (top + bottom) / 2f
+
+        fun include(other: FloatRect) {
+            left = kotlin.math.min(left, other.left)
+            top = kotlin.math.min(top, other.top)
+            right = kotlin.math.max(right, other.right)
+            bottom = kotlin.math.max(bottom, other.bottom)
+        }
+
+        fun isSameTextLine(other: FloatRect): Boolean {
+            val avgHeight = ((height + other.height) / 2f).coerceAtLeast(1f)
+            val verticalClose = kotlin.math.abs(centerY - other.centerY) <= avgHeight * 0.65f
+            val verticalOverlap = kotlin.math.min(bottom, other.bottom) - kotlin.math.max(top, other.top)
+            val hasOverlap = verticalOverlap >= avgHeight * 0.35f
+            val horizontalGap = other.left - right
+            val gapAllowed = avgHeight * 2.5f
+            return (verticalClose || hasOverlap) && horizontalGap <= gapAllowed
+        }
+
+        fun toBox(): List<Pair<Float, Float>> = listOf(
+            Pair(left, top), Pair(right, top), Pair(right, bottom), Pair(left, bottom)
+        )
+    }
+
+    private fun List<RecognizedTextBlock>.readingOrder(): List<RecognizedTextBlock> {
+        if (size <= 1) return this
+        val avgHeight = map { (it.bottom - it.top).coerceAtLeast(1) }.average().toFloat().coerceAtLeast(1f)
+        return sortedWith(compareBy<RecognizedTextBlock> { ((it.top + it.bottom) / 2f / avgHeight).toInt() }.thenBy { it.left })
+    }
+
+    private fun Bitmap.toOpaqueBitmap(): Bitmap {
+        if (config == Bitmap.Config.ARGB_8888 && !hasAlpha()) return this
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        canvas.drawColor(Color.WHITE)
+        canvas.drawBitmap(this, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG))
+        return output
+    }
+
+    private fun Bitmap.enhanceForText(): Bitmap {
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val pixels = IntArray(width * height)
+        getPixels(pixels, 0, width, 0, 0, width, height)
+
+        var minLum = 255
+        var maxLum = 0
+        for (i in pixels.indices) {
+            val px = pixels[i]
+            val lum = ((Color.red(px) * 299 + Color.green(px) * 587 + Color.blue(px) * 114) / 1000).coerceIn(0, 255)
+            if (lum < minLum) minLum = lum
+            if (lum > maxLum) maxLum = lum
+        }
+
+        val range = (maxLum - minLum).coerceAtLeast(1)
+        val shouldStretch = range < 180
+        for (i in pixels.indices) {
+            val px = pixels[i]
+            fun adjust(channel: Int): Int {
+                val stretched = if (shouldStretch) ((channel - minLum) * 255 / range) else channel
+                val contrasted = ((stretched - 128) * 1.12f + 128).toInt()
+                return contrasted.coerceIn(0, 255)
+            }
+            val r = adjust(Color.red(px))
+            val g = adjust(Color.green(px))
+            val b = adjust(Color.blue(px))
+            pixels[i] = Color.rgb(r, g, b)
+        }
+        output.setPixels(pixels, 0, width, 0, 0, width, height)
+        return output
+    }
+
     // ─── Classification ─────────────────────────────────────
 
     private fun runClassification(bitmap: Bitmap): Boolean {
@@ -316,9 +421,9 @@ class PaddleOcrV5Processor(
                     maxIdx = c
                 }
             }
-            // Blank is index 0 (or dict.size for blank — PaddleOCR uses dict.size as blank)
-            if (maxIdx != lastIdx && maxIdx != 0 && maxIdx < dict.size) {
-                sb.append(dict[maxIdx])
+            // Blank is index 0; PaddleOCR dictionary starts at output index 1.
+            if (maxIdx != lastIdx && maxIdx > 0 && maxIdx <= dict.size) {
+                sb.append(dict[maxIdx - 1])
                 totalConf += maxVal
                 confCount++
             }
@@ -332,10 +437,15 @@ class PaddleOcrV5Processor(
     // ─── Helpers ────────────────────────────────────────────
 
     private fun cropAndRotate(bitmap: Bitmap, box: List<Pair<Float, Float>>): Bitmap {
-        val minX = box.map { it.first }.min().toInt().coerceAtLeast(0)
-        val minY = box.map { it.second }.min().toInt().coerceAtLeast(0)
-        val maxX = box.map { it.first }.max().toInt().coerceAtMost(bitmap.width)
-        val maxY = box.map { it.second }.max().toInt().coerceAtMost(bitmap.height)
+        val rawMinX = box.map { it.first }.min().toInt().coerceAtLeast(0)
+        val rawMinY = box.map { it.second }.min().toInt().coerceAtLeast(0)
+        val rawMaxX = box.map { it.first }.max().toInt().coerceAtMost(bitmap.width)
+        val rawMaxY = box.map { it.second }.max().toInt().coerceAtMost(bitmap.height)
+        val pad = (((rawMaxY - rawMinY).coerceAtLeast(1)) * 0.18f).toInt().coerceIn(2, 16)
+        val minX = (rawMinX - pad).coerceAtLeast(0)
+        val minY = (rawMinY - pad).coerceAtLeast(0)
+        val maxX = (rawMaxX + pad).coerceAtMost(bitmap.width)
+        val maxY = (rawMaxY + pad).coerceAtMost(bitmap.height)
 
         val w = max(maxX - minX, 1)
         val h = max(maxY - minY, 1)
