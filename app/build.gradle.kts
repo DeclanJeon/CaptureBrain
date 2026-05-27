@@ -44,7 +44,7 @@ android {
         applicationId = "com.ponslink.capturebrain"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
+        versionCode = 6
         versionName = versionNameVal
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
