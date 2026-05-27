@@ -17,7 +17,7 @@ import com.ponslink.capturebrain.data.CaptureBrainDatabase
 import com.ponslink.capturebrain.drive.DriveAccountStore
 import com.ponslink.capturebrain.drive.UnconnectedDriveUploader
 import com.ponslink.capturebrain.drive.UserGoogleDriveUploader
-import com.ponslink.capturebrain.ocr.MlKitOcrProcessor
+import com.ponslink.capturebrain.ocr.PaddleOcrV5Processor
 import com.ponslink.capturebrain.settings.CaptureSettingsStore
 import java.util.concurrent.TimeUnit
 
@@ -42,7 +42,7 @@ class CaptureProcessWorker(
         val repository = CaptureRepository(
             dao = db.captureItemDao(),
             screenshotDetector = MediaStoreScreenshotScanner(applicationContext),
-            ocrProcessor = MlKitOcrProcessor(applicationContext),
+            ocrProcessor = PaddleOcrV5Processor(applicationContext),
             driveUploader = driveUploader
         )
         repository.importRecentScreenshots(
